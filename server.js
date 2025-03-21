@@ -1,117 +1,52 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const cors = require('cors');
-const bodyParser = require('body-parser');
+const dotenv = require('dotenv');
 const app = express();
 
-// Middleware setup
-app.use(cors());
-app.use(bodyParser.json());
+// Load environment variables from a .env file
+dotenv.config();
 
-// MongoDB connection
-mongoose.connect('mongodb://localhost/tixswitch', { useNewUrlParser: true, useUnifiedTopology: true });
+// Body parser middleware to parse JSON requests
+app.use(express.json());
 
-const UserSchema = new mongoose.Schema({
-    username: { type: String, required: true, unique: true },
-    password: { type: String, required: true }
+// MongoDB connection string from environment variables or local connection for development
+const dbURI = process.env.MONGO_URI || 'mongodb://localhost:27017/tixswitch';
+
+// Connect to MongoDB using mongoose
+mongoose.connect(dbURI, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+})
+    .then(() => {
+        console.log('Connected to MongoDB');
+    })
+    .catch((err) => {
+        console.error('Error connecting to MongoDB:', err);
+    });
+
+// Basic route to test server is running
+app.get('/', (req, res) => {
+    res.send('Server is running');
 });
 
-const ListingSchema = new mongoose.Schema({
-    name: String,
-    price: Number,
-    imageUrl: String,
-    seller: String
-});
-
-const MessageSchema = new mongoose.Schema({
-    sender: String,
-    receiver: String,
-    message: String
-});
-
-const User = mongoose.model('User', UserSchema);
-const Listing = mongoose.model('Listing', ListingSchema);
-const Message = mongoose.model('Message', MessageSchema);
-
-// Routes
-// User registration
-app.post('/register', async (req, res) => {
-    const { username, password } = req.body;
+// Example of a more detailed route to demonstrate MongoDB data fetching
+app.get('/data', async (req, res) => {
     try {
-        const existingUser = await User.findOne({ username });
-        if (existingUser) {
-            return res.status(400).send('Username already taken!');
-        }
-        const user = new User({ username, password });
-        await user.save();
-        res.status(201).send('Account created! Please log in.');
-    } catch (error) {
-        res.status(500).send('Server error!');
+        // Example: Replace with actual MongoDB operations
+        const data = await SomeModel.find(); // Assuming you have a model named SomeModel
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to fetch data' });
     }
 });
 
-// User login
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const user = await User.findOne({ username, password });
-        if (!user) {
-            return res.status(400).send('Invalid login credentials!');
-        }
-        res.status(200).send('Logged in successfully!');
-    } catch (error) {
-        res.status(500).send('Server error!');
-    }
-});
-
-// Get all listings
-app.get('/listings', async (req, res) => {
-    try {
-        const listings = await Listing.find();
-        res.json(listings);
-    } catch (error) {
-        res.status(500).send('Server error!');
-    }
-});
-
-// Create a new listing
-app.post('/create-listing', async (req, res) => {
-    const { name, price, imageUrl, seller } = req.body;
-    try {
-        const newListing = new Listing({ name, price, imageUrl, seller });
-        await newListing.save();
-        res.status(201).send('Listing created successfully!');
-    } catch (error) {
-        res.status(500).send('Server error!');
-    }
-});
-
-// Send a message
-app.post('/send-message', async (req, res) => {
-    const { sender, receiver, message } = req.body;
-    try {
-        const newMessage = new Message({ sender, receiver, message });
-        await newMessage.save();
-        res.status(201).send('Message sent!');
-    } catch (error) {
-        res.status(500).send('Server error!');
-    }
-});
-
-// Get messages
-app.get('/messages/:username', async (req, res) => {
-    const { username } = req.params;
-    try {
-        const messages = await Message.find({
-            $or: [{ sender: username }, { receiver: username }]
-        });
-        res.json(messages);
-    } catch (error) {
-        res.status(500).send('Server error!');
-    }
+// Handle errors for undefined routes
+app.all('*', (req, res) => {
+    res.status(404).send('Route not found');
 });
 
 // Start the server
-app.listen(3000, () => {
-    console.log('Server running on port 3000');
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
