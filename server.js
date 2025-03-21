@@ -1,27 +1,34 @@
-require('dotenv').config(); // Load .env file
+// Load environment variables
+require('dotenv').config();
 
+// Import required modules
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+
+// Import models
 const User = require('./models/User');
 const Listing = require('./models/Listing');
 const Message = require('./models/Message');
 
+// Initialize the app
 const app = express();
+
+// Set up PORT and Mongo URI from environment variables
 const PORT = process.env.PORT || 3978;
 const MONGO_URI = process.env.MONGO_URI;
 
-// Middleware
+// Middleware for CORS and JSON parsing
 app.use(cors());
 app.use(bodyParser.json());
 
-// MongoDB Connection
-mongoose.connect(MONGO_URI, { useNewUrlParser: true, useUnifiedTopology: true })
-    .then(() => console.log("✅ Connected to MongoDB"))
-    .catch(err => console.error("❌ MongoDB connection error:", err));
+// MongoDB connection setup
+mongoose.connect(MONGO_URI)
+  .then(() => console.log("✅ Connected to MongoDB"))
+  .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// Routes
+// Routes for user registration and login
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     try {
@@ -47,6 +54,7 @@ app.post('/login', async (req, res) => {
     }
 });
 
+// Routes for managing listings
 app.post('/listing', async (req, res) => {
     const { name, price, imageUrl, sellerId } = req.body;
     try {
@@ -67,6 +75,7 @@ app.get('/listings', async (req, res) => {
     }
 });
 
+// Routes for messaging
 app.post('/message', async (req, res) => {
     const { senderId, receiverId, message } = req.body;
     try {
@@ -90,7 +99,7 @@ app.get('/messages/:userId', async (req, res) => {
     }
 });
 
-// Start the Server
+// Start the server
 app.listen(PORT, () => {
     console.log(`🚀 Server is running on http://localhost:${PORT}`);
 });
