@@ -1,105 +1,117 @@
-// Load environment variables
-require('dotenv').config();
-
-// Import required modules
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bodyParser = require('body-parser');
-
-// Import models
-const User = require('./models/User');
-const Listing = require('./models/Listing');
-const Message = require('./models/Message');
-
-// Initialize the app
 const app = express();
 
-// Set up PORT and Mongo URI from environment variables
-const PORT = process.env.PORT || 3978;
-const MONGO_URI = process.env.MONGO_URI;
-
-// Middleware for CORS and JSON parsing
+// Middleware setup
 app.use(cors());
 app.use(bodyParser.json());
 
-// MongoDB connection setup
-mongoose.connect(MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB"))
-  .catch(err => console.error("❌ MongoDB connection error:", err));
+// MongoDB connection
+mongoose.connect('mongodb://localhost/tixswitch', { useNewUrlParser: true, useUnifiedTopology: true });
 
-// Routes for user registration and login
+const UserSchema = new mongoose.Schema({
+    username: { type: String, required: true, unique: true },
+    password: { type: String, required: true }
+});
+
+const ListingSchema = new mongoose.Schema({
+    name: String,
+    price: Number,
+    imageUrl: String,
+    seller: String
+});
+
+const MessageSchema = new mongoose.Schema({
+    sender: String,
+    receiver: String,
+    message: String
+});
+
+const User = mongoose.model('User', UserSchema);
+const Listing = mongoose.model('Listing', ListingSchema);
+const Message = mongoose.model('Message', MessageSchema);
+
+// Routes
+// User registration
 app.post('/register', async (req, res) => {
     const { username, password } = req.body;
     try {
+        const existingUser = await User.findOne({ username });
+        if (existingUser) {
+            return res.status(400).send('Username already taken!');
+        }
         const user = new User({ username, password });
         await user.save();
-        res.status(201).send("User registered successfully!");
+        res.status(201).send('Account created! Please log in.');
     } catch (error) {
-        res.status(400).send(error.message);
+        res.status(500).send('Server error!');
     }
 });
 
+// User login
 app.post('/login', async (req, res) => {
     const { username, password } = req.body;
     try {
         const user = await User.findOne({ username, password });
-        if (user) {
-            res.status(200).send("Login successful!");
-        } else {
-            res.status(400).send("Invalid credentials.");
+        if (!user) {
+            return res.status(400).send('Invalid login credentials!');
         }
+        res.status(200).send('Logged in successfully!');
     } catch (error) {
-        res.status(400).send(error.message);
+        res.status(500).send('Server error!');
     }
 });
 
-// Routes for managing listings
-app.post('/listing', async (req, res) => {
-    const { name, price, imageUrl, sellerId } = req.body;
-    try {
-        const listing = new Listing({ name, price, imageUrl, seller: sellerId });
-        await listing.save();
-        res.status(201).send("Listing created successfully!");
-    } catch (error) {
-        res.status(400).send(error.message);
-    }
-});
-
+// Get all listings
 app.get('/listings', async (req, res) => {
     try {
-        const listings = await Listing.find().populate('seller');
-        res.status(200).json(listings);
+        const listings = await Listing.find();
+        res.json(listings);
     } catch (error) {
-        res.status(400).send(error.message);
+        res.status(500).send('Server error!');
     }
 });
 
-// Routes for messaging
-app.post('/message', async (req, res) => {
-    const { senderId, receiverId, message } = req.body;
+// Create a new listing
+app.post('/create-listing', async (req, res) => {
+    const { name, price, imageUrl, seller } = req.body;
     try {
-        const newMessage = new Message({ sender: senderId, receiver: receiverId, message });
-        await newMessage.save();
-        res.status(201).send("Message sent successfully!");
+        const newListing = new Listing({ name, price, imageUrl, seller });
+        await newListing.save();
+        res.status(201).send('Listing created successfully!');
     } catch (error) {
-        res.status(400).send(error.message);
+        res.status(500).send('Server error!');
     }
 });
 
-app.get('/messages/:userId', async (req, res) => {
-    const userId = req.params.userId;
+// Send a message
+app.post('/send-message', async (req, res) => {
+    const { sender, receiver, message } = req.body;
+    try {
+        const newMessage = new Message({ sender, receiver, message });
+        await newMessage.save();
+        res.status(201).send('Message sent!');
+    } catch (error) {
+        res.status(500).send('Server error!');
+    }
+});
+
+// Get messages
+app.get('/messages/:username', async (req, res) => {
+    const { username } = req.params;
     try {
         const messages = await Message.find({
-            $or: [{ sender: userId }, { receiver: userId }]
-        }).populate('sender receiver');
-        res.status(200).json(messages);
+            $or: [{ sender: username }, { receiver: username }]
+        });
+        res.json(messages);
     } catch (error) {
-        res.status(400).send(error.message);
+        res.status(500).send('Server error!');
     }
 });
 
 // Start the server
-app.listen(PORT, () => {
-    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+app.listen(3000, () => {
+    console.log('Server running on port 3000');
 });
